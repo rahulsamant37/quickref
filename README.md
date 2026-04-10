@@ -2,53 +2,75 @@
 
 A lightweight, git-friendly knowledge base for terminal and Neovim workflows.
 
-quickref is designed for fast retrieval and low maintenance:
-- Search-first from terminal
-- Markdown notes with clean structure
-- Fast note creation with date-based paths
-- Optional Neovim integration for an editor-native workflow
+quickref is built for one thing: fast capture and fast retrieval of personal reference notes without adding maintenance overhead.
 
-## Features
+## Highlights
 
-- `qref` interactive picker for quickref files
-- `qref <query>` content search and jump-to-line in Neovim
-- `qref --help` opens the notes index
-- `qnewref "title"` creates a dated note using a template
-- `ref` and `qn` aliases (if configured in your shell)
+- Search-first workflow from terminal (`qref <query>`)
+- Interactive file picker for browsing notes (`qref`)
+- Date-based note creation with stable paths (`qnewref "title"`)
+- Markdown-first structure that stays easy to diff and review
+- Optional Neovim-native command/keymap integration
 
 ## Repository Layout
 
 ```text
 quickref/
-├── bin/
-│   ├── qref
-│   ├── qnewref
-│   └── ref
-├── notes/
-│   ├── index.md
-│   └── ...
-└── templates/
-    └── note.md
+|-- bin/
+|   |-- qref
+|   |-- qnewref
+|   `-- ref
+|-- notes/
+|   |-- index.md
+|   `-- ...
+`-- templates/
+    `-- note.md
 ```
 
 ## Requirements
 
-- Neovim (`nvim`) required by `qref` and `qnewref`
-- ripgrep (`rg`) required for search mode (`qref <query>`)
-- fzf recommended for interactive selection (picker and search select)
-- fd optional for faster file discovery in picker mode
+- `bash` (scripts are Bash)
+- `nvim` required by `qref`; used by `qnewref` when opening a created note
+- `rg` (ripgrep) required for `qref <query>` mode
+- `fzf` recommended for interactive selection
+- `fd` optional for faster file discovery in picker mode
 
-## Quick Start
+## Local Setup
 
-1. Ensure quickref bin directory is in PATH.
-2. Run `qref` to open the picker.
-3. Run `qnewref "some title"` to create and open a new dated note.
-
-Optional shell aliases:
+1. Clone to your preferred path (example uses `~/github/quickref`):
 
 ```sh
+git clone <your-repo-url> "$HOME/github/quickref"
+cd "$HOME/github/quickref"
+```
+
+2. Ensure the scripts are executable:
+
+```sh
+chmod +x bin/qref bin/qnewref bin/ref
+```
+
+3. Add quickref to your shell environment (zsh example):
+
+```sh
+cat <<'EOF' >> ~/.zshrc
+export QUICKREF_DIR="$HOME/github/quickref"
+export PATH="$QUICKREF_DIR/bin:$PATH"
+
 alias ref='qref'
 alias qn='qnewref'
+EOF
+
+source ~/.zshrc
+```
+
+For Bash, use `~/.bashrc` instead of `~/.zshrc`.
+
+4. Verify installation:
+
+```sh
+qref --help
+qnewref "quickref setup test"
 ```
 
 ## CLI Usage
@@ -59,51 +81,63 @@ alias qn='qnewref'
 | `qref <text>` | Search notes and open selected match at exact line (excludes `notes/index.md`) |
 | `qref --help` | Open `notes/index.md` |
 | `qnewref "title"` | Create/open `notes/YYYY/MM/YYYY-MM-DD-title.md` |
+| `ref` | Pass-through wrapper to `qref` |
 
 ### Examples
 
 ```sh
 qref
-qref docker
+qref docker compose
 qref --help
 qnewref "ssh troubleshooting"
 ```
 
-## Neovim Integration
-
-If your Neovim setup includes quickref mappings/commands, common actions are:
-
-- `:QuickrefFiles` open quickref file search
-- `:QuickrefGrep` grep within quickref notes
-- `:QuickrefOpen` open this README
-- `:QuickrefNew [title]` create/open a new dated note
-
-Typical keymaps:
-
-- `<leader>sq` quickref files
-- `<leader>sQ` quickref grep
-- `<leader>qo` open quickref README
-- `<leader>qn` new quickref note
-
 ## Configuration
 
-- Default root: `~/github/quickref`
-- Override root: set `QUICKREF_DIR`
+### `QUICKREF_DIR`
+
+- Default: `$HOME/github/quickref`
+- Use this to point quickref to a different root path
 
 ```sh
 export QUICKREF_DIR="$HOME/github/quickref"
 ```
 
+### `QUICKREF_NO_OPEN`
+
+Set this for non-interactive usage of `qnewref` (for scripts/automation):
+
+```sh
+QUICKREF_NO_OPEN=1 qnewref "release checklist"
+```
+
 ## Behavior Notes
 
-- `notes/index.md` is intentionally excluded from normal picker and search results.
-- Use `qref --help` when you want the index explicitly.
+- `notes/index.md` is intentionally excluded from picker and search results.
+- Use `qref --help` to open `notes/index.md` directly.
+- In search mode without `fzf`, `qref` opens the first match automatically.
+
+## Neovim Integration (Optional)
+
+If your Neovim config defines quickref helpers, common patterns are:
+
+- `:QuickrefFiles` to open quickref file search
+- `:QuickrefGrep` to grep within quickref notes
+- `:QuickrefOpen` to open this README
+- `:QuickrefNew [title]` to create/open a dated note
+
+Typical keymaps:
+
+- `<leader>sq` quickref files
+- `<leader>sQ` quickref grep
+- `<leader>qo` quickref README
+- `<leader>qn` new quickref note
 
 ## Troubleshooting
 
-- `nvim is required but not found in PATH`
-  Install Neovim or ensure it is in PATH.
-- `ripgrep (rg) is required for search mode`
-  Install ripgrep.
-- `fzf is required for interactive picker mode`
-  Install fzf or use `qref <query>` mode.
+| Error | Cause | Fix |
+|---|---|---|
+| `quickref directory not found: ...` | `QUICKREF_DIR` is wrong or repo is missing | Set `QUICKREF_DIR` to the correct path |
+| `nvim is required but not found in PATH` | Neovim is not installed or not on PATH | Install Neovim and confirm `nvim` is available |
+| `ripgrep (rg) is required for search mode.` | `rg` is not installed | Install ripgrep |
+| `fzf is required for interactive picker mode.` | `fzf` is not installed | Install `fzf` or use `qref <query>` |
