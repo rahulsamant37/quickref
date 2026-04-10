@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${QUICKREF_DIR:-$HOME/github/quickref}"
+INDEX_FILE="$ROOT/notes/index.md"
+
+if [[ ! -d "$ROOT" ]]; then
+  echo "quickref directory not found: $ROOT" >&2
+  exit 1
+fi
+
+if ! command -v nvim >/dev/null 2>&1; then
+  echo "nvim is required but not found in PATH" >&2
+  exit 1
+fi
+
+open_file_picker() {
+  local choice
+
+  if ! command -v fzf >/dev/null 2>&1; then
+    echo "fzf is required for interactive picker mode." >&2
+    echo "Use: qref <search terms>" >&2
+    return 1
+  fi
+
+  if command -v fd >/dev/null 2>&1; then
+    choice="$({ fd . "$ROOT" --type f --hidden --follow --exclude .git; } \
+      | awk '!/\/notes\/index\.md$/' \
+      | fzf --prompt='quickref files> ' \
+            --preview 'sed -n "1,200p" {}' \
+            --preview-window=right:60%)" || return 1
+  else
+    choice="$({ find "$ROOT" -type f ! -path '*/.git/*' | sort; } \
+      | awk '!/\/notes\/index\.md$/' \
+      | fzf --prompt='quickref files> ' \
+            --preview 'sed -n "1,200p" {}' \
+            --preview-window=right:60%)" || return 1
+  fi
+
+  exec nvim "$choice"
+}
+
+open_search_result() {
+  local query="$1"
+
+  if ! command -v rg >/dev/null 2>&1; then
+    echo "ripgrep (rg) is required for search mode." >&2
+    exit 1
+  fi
+
+  local matches
+  matches="$(rg --line-number --no-heading --smart-case --color=never --glob '!**/notes/index.md' "$query" "$ROOT" || true)"
+
+  if [[ -z "$matches" ]]; then
+    echo "No matches for: $query" >&2
+    exit 1
+  fi
+
+  local selected
+  if command -v fzf >/dev/null 2>&1; then
+    selected="$(printf '%s\n' "$matches" \
+      | fzf --prompt='quickref grep> ' \
+            --delimiter ':' \
+            --preview 'f=$(echo {} | cut -d: -f1); l=$(echo {} | cut -d: -f2); start=$((l>20?l-20:1)); end=$((l+20)); sed -n "${start},${end}p" "$f"' \
+            --preview-window=right:70%)" || exit 1
+  else
+    selected="$(printf '%s\n' "$matches" | head -n 1)"
+  fi
+
+  local file line
+  file="$(printf '%s' "$selected" | cut -d: -f1)"
+  line="$(printf '%s' "$selected" | cut -d: -f2)"
+
+  exec nvim "+${line}" "$file"
+}
+
+if [[ $# -eq 1 && "$1" == "--help" ]]; then
+  if [[ ! -f "$INDEX_FILE" ]]; then
+    echo "quickref index not found: $INDEX_FILE" >&2
+    exit 1
+  fi
+
+  exec nvim "$INDEX_FILE"
+elif [[ $# -eq 0 ]]; then
+  open_file_picker
+else
+  open_search_result "$*"
+fi
