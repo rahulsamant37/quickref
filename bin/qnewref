@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${QUICKREF_DIR:-$HOME/github/quickref}"
+TEMPLATE="$ROOT/templates/note.md"
+
+if [[ ! -d "$ROOT" ]]; then
+  echo "quickref directory not found: $ROOT" >&2
+  exit 1
+fi
+
+title="${*:-}"
+if [[ -z "$title" ]]; then
+  read -r -p "Quickref title: " title
+fi
+
+title="${title## }"
+title="${title%% }"
+if [[ -z "$title" ]]; then
+  echo "Title cannot be empty." >&2
+  exit 1
+fi
+
+slug="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+if [[ -z "$slug" ]]; then
+  slug="note"
+fi
+
+date_stamp="$(date +%F)"
+year="$(date +%Y)"
+month="$(date +%m)"
+
+dir="$ROOT/notes/$year/$month"
+file="$dir/${date_stamp}-${slug}.md"
+mkdir -p "$dir"
+
+if [[ ! -f "$file" ]]; then
+  if [[ -f "$TEMPLATE" ]]; then
+    content="$(cat "$TEMPLATE")"
+    content="${content//'{{TITLE}}'/$title}"
+    content="${content//'{{DATE}}'/$date_stamp}"
+    printf '%s\n' "$content" > "$file"
+  else
+    cat > "$file" <<EOF
+# $title
+
+Created: $date_stamp
+
+## Summary
+
+## Details
+
+## Links
+EOF
+  fi
+fi
+
+if [[ "${QUICKREF_NO_OPEN:-0}" == "1" || ! -t 1 ]]; then
+  printf '%s\n' "$file"
+  exit 0
+fi
+
+if command -v nvim >/dev/null 2>&1; then
+  exec nvim "$file"
+fi
+
+printf '%s\n' "$file"
