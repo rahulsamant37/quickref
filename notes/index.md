@@ -17,6 +17,7 @@ Use this file to maintain a high-level map of your notes.
 | Zsh | commands/zsh.md | qref zsh |
 | Kitty + Starship | commands/kitty-zsh-starship.md | qref kitty |
 | Neovim | commands/neovim.md | qref neovim |
+| CP-Algorithms Study | commands/cp-algorithms-study.md | qref cpa |
 
 ## Daily Notes
 
