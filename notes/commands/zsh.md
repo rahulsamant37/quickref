@@ -15,7 +15,7 @@ Use with: `qref zsh`
 | Find command path | `which cmd` |
 | Command type | `type cmd` |
 | Search text | `rg "pattern"` |
-| Reload zsh config | `source ~/.config/zsh/.zshrc` |
+| Reload zsh config | `source ~/.zshrc` |
 
 ## Keybinds
 
