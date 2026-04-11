@@ -2,42 +2,83 @@
 set -euo pipefail
 
 ROOT="${QUICKREF_DIR:-$HOME/github/quickref}"
-INDEX_FILE="$ROOT/notes/index.md"
+NOTES_ROOT="${QUICKREF_NOTES_DIR:-$ROOT/notes}"
+INDEX_FILE="$NOTES_ROOT/index.md"
+USE_FZF=1
+USE_PREVIEW=1
+
+if [[ "${QUICKREF_NO_FZF:-0}" == "1" ]]; then
+  USE_FZF=0
+fi
+
+if [[ "${QUICKREF_NO_PREVIEW:-0}" == "1" ]]; then
+  USE_PREVIEW=0
+fi
 
 if [[ ! -d "$ROOT" ]]; then
   echo "quickref directory not found: $ROOT" >&2
   exit 1
 fi
 
-if ! command -v nvim >/dev/null 2>&1; then
-  echo "nvim is required but not found in PATH" >&2
+if [[ ! -d "$NOTES_ROOT" ]]; then
+  echo "quickref notes directory not found: $NOTES_ROOT" >&2
   exit 1
 fi
 
+open_in_editor() {
+  local file="$1"
+  local line="${2:-}"
+
+  if [[ "${QUICKREF_NO_OPEN:-0}" == "1" ]]; then
+    if [[ -n "$line" ]]; then
+      echo "$file:$line"
+    else
+      echo "$file"
+    fi
+    return 0
+  fi
+
+  if ! command -v nvim >/dev/null 2>&1; then
+    echo "nvim is required but not found in PATH" >&2
+    exit 1
+  fi
+
+  if [[ -n "$line" ]]; then
+    exec nvim "+${line}" "$file"
+  fi
+
+  exec nvim "$file"
+}
+
 open_file_picker() {
   local choice
+  local files
 
-  if ! command -v fzf >/dev/null 2>&1; then
-    echo "fzf is required for interactive picker mode." >&2
-    echo "Use: qref <search terms>" >&2
+  if command -v fd >/dev/null 2>&1; then
+    files="$({ fd . "$NOTES_ROOT" --type f --hidden --follow --exclude .git; } | awk '!/\/index\.md$/' | sort)"
+  else
+    files="$({ find "$NOTES_ROOT" -type f ! -path '*/.git/*' | sort; } | awk '!/\/index\.md$/' )"
+  fi
+
+  if [[ -z "$files" ]]; then
+    echo "No note files found under: $NOTES_ROOT" >&2
     return 1
   fi
 
-  if command -v fd >/dev/null 2>&1; then
-    choice="$({ fd . "$ROOT" --type f --hidden --follow --exclude .git; } \
-      | awk '!/\/notes\/index\.md$/' \
-      | fzf --prompt='quickref files> ' \
-            --preview 'sed -n "1,200p" {}' \
-            --preview-window=right:60%)" || return 1
+  if [[ "$USE_FZF" -eq 1 ]] && command -v fzf >/dev/null 2>&1; then
+    if [[ "$USE_PREVIEW" -eq 1 ]]; then
+      choice="$(printf '%s\n' "$files" \
+        | fzf --prompt='quickref files> ' \
+              --preview 'sed -n "1,200p" {}' \
+              --preview-window=right:60%)" || return 1
+    else
+      choice="$(printf '%s\n' "$files" | fzf --prompt='quickref files> ')" || return 1
+    fi
   else
-    choice="$({ find "$ROOT" -type f ! -path '*/.git/*' | sort; } \
-      | awk '!/\/notes\/index\.md$/' \
-      | fzf --prompt='quickref files> ' \
-            --preview 'sed -n "1,200p" {}' \
-            --preview-window=right:60%)" || return 1
+    choice="$(printf '%s\n' "$files" | head -n 1)"
   fi
 
-  exec nvim "$choice"
+  open_in_editor "$choice"
 }
 
 open_search_result() {
@@ -49,29 +90,38 @@ open_search_result() {
   fi
 
   local matches
-  matches="$(rg --line-number --no-heading --smart-case --color=never --glob '!**/notes/index.md' "$query" "$ROOT" || true)"
+  matches="$(rg --line-number --no-heading --smart-case --color=never --glob '!**/index.md' "$query" "$NOTES_ROOT" || true)"
 
   if [[ -z "$matches" ]]; then
     echo "No matches for: $query" >&2
     exit 1
   fi
 
+  local files
+  files="$(printf '%s\n' "$matches" | cut -d: -f1 | awk '!seen[$0]++')"
+
   local selected
-  if command -v fzf >/dev/null 2>&1; then
-    selected="$(printf '%s\n' "$matches" \
-      | fzf --prompt='quickref grep> ' \
-            --delimiter ':' \
-            --preview 'f=$(echo {} | cut -d: -f1); l=$(echo {} | cut -d: -f2); start=$((l>20?l-20:1)); end=$((l+20)); sed -n "${start},${end}p" "$f"' \
-            --preview-window=right:70%)" || exit 1
+  local line
+
+  if [[ "$USE_FZF" -eq 1 ]] && command -v fzf >/dev/null 2>&1; then
+    local escaped_query
+    printf -v escaped_query '%q' "$query"
+
+    if [[ "$USE_PREVIEW" -eq 1 ]]; then
+      selected="$(printf '%s\n' "$files" \
+        | fzf --prompt='quickref files> ' \
+              --preview "rg --line-number --no-heading --smart-case --color=always -- ${escaped_query} {} | head -n 40; echo; sed -n '1,200p' {}" \
+              --preview-window=right:70%)" || exit 1
+    else
+      selected="$(printf '%s\n' "$files" | fzf --prompt='quickref files> ')" || exit 1
+    fi
   else
-    selected="$(printf '%s\n' "$matches" | head -n 1)"
+    selected="$(printf '%s\n' "$files" | head -n 1)"
   fi
 
-  local file line
-  file="$(printf '%s' "$selected" | cut -d: -f1)"
-  line="$(printf '%s' "$selected" | cut -d: -f2)"
+  line="$(rg --line-number --no-heading --smart-case --color=never -- "$query" "$selected" | head -n 1 | cut -d: -f1)"
 
-  exec nvim "+${line}" "$file"
+  open_in_editor "$selected" "$line"
 }
 
 if [[ $# -eq 1 && "$1" == "--help" ]]; then
@@ -80,7 +130,7 @@ if [[ $# -eq 1 && "$1" == "--help" ]]; then
     exit 1
   fi
 
-  exec nvim "$INDEX_FILE"
+  open_in_editor "$INDEX_FILE"
 elif [[ $# -eq 0 ]]; then
   open_file_picker
 else
