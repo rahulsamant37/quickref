@@ -59,3 +59,8 @@ Use with: `qref neovim`
 3. `q`
 4. `@a`
 5. `10@a`
+
+## Motion Tips
+
+Use `f<char>` when you want to land exactly on the character
+Use `t<char>` when you want to position just before the character
