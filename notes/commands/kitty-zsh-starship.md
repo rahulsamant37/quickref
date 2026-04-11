@@ -20,6 +20,11 @@ Use with: `qref kitty`, `qref zsh`, `qref starship`
 | `Ctrl+Shift+F` | Toggle fullscreen |
 | `Ctrl+Shift+R` | Reload kitty config |
 | `Ctrl+Shift+=` / `Ctrl+Shift+-` | Font size up / down |
+| `Ctrl+Shift+Z` | Toggle zoom (full tab) for current pane |
+| `Ctrl+Shift+M` | Maximize pane horizontally |
+| `Ctrl+Shift+V` | Maximize pane vertically |
+| `Ctrl+Shift+Left/Right/Up/Down` | Fine resize (step-by-step) |
+| `Ctrl+Shift+Home` | Reset pane size |## Zsh Keybinds
 
 ## Zsh Keybinds
 
@@ -38,7 +43,7 @@ Use with: `qref kitty`, `qref zsh`, `qref starship`
 
 ## Useful Commands
 
-- Reload Zsh: `source ~/.config/zsh/.zshrc`
+- Reload Zsh: `source ~/.zshrc`
 - Reload Kitty: `Ctrl+Shift+R`
 - Check Kitty config: `kitty --debug-config`
 
