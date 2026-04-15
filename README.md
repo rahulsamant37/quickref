@@ -139,7 +139,10 @@ qnewref "quickref setup test"
 | Command | Behavior |
 |---|---|
 | `qref` | Interactive note picker from `notes/` (excludes `notes/index.md`) |
-| `qref <text>` | Search in `notes/`, show one entry per file, open selected file at first match |
+| `qref <text>` | Search in `notes/`, let you choose a matching markdown file with preview, then open it |
+| `qref stl` | Open `notes/commands/cpp-stl/index.md` |
+| `qref stl-list` | Print supported STL quick-access topics |
+| `qref vector` | Jump to the `vector` section in STL quick reference |
 | `qref --help` | Open `notes/index.md` |
 | `qnewref "title"` | Create/open `notes/YYYY/MM/YYYY-MM-DD-title.md` |
 | `ref` | Pass-through wrapper to `qref` |
