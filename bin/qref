@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="${QUICKREF_DIR:-$HOME/github/quickref}"
 NOTES_ROOT="${QUICKREF_NOTES_DIR:-$ROOT/notes}"
 INDEX_FILE="$NOTES_ROOT/index.md"
+STL_ROOT="$NOTES_ROOT/commands/cpp-stl"
+STL_INDEX_FILE="$STL_ROOT/index.md"
 USE_FZF=1
 USE_PREVIEW=1
 
@@ -50,8 +52,134 @@ open_in_editor() {
   exec nvim "$file"
 }
 
-open_file_picker() {
+pick_file_with_preview() {
+  local prompt="$1"
+  local files="$2"
   local choice
+
+  if [[ -z "$files" ]]; then
+    return 1
+  fi
+
+  if [[ "$USE_FZF" -eq 1 ]] && command -v fzf >/dev/null 2>&1; then
+    if [[ "$USE_PREVIEW" -eq 1 ]]; then
+      choice="$(printf '%s\n' "$files" \
+        | fzf --prompt="$prompt" \
+              --preview 'sed -n "1,200p" {}' \
+              --preview-window=right:60%)" || return 1
+    else
+      choice="$(printf '%s\n' "$files" | fzf --prompt="$prompt")" || return 1
+    fi
+  else
+    choice="$(printf '%s\n' "$files" | head -n 1)"
+  fi
+
+  open_in_editor "$choice"
+}
+
+print_stl_topics() {
+  cat <<'EOF'
+Available STL quick-access topics:
+
+Containers:
+vector
+deque
+list
+array
+set
+map
+unordered_set
+unordered_map
+stack
+queue
+priority_queue
+
+Algorithms:
+sort
+lower_bound
+binary_search
+find
+count
+accumulate
+all_of
+any_of
+transform
+remove
+unique
+reverse
+next_permutation
+iota
+
+Other:
+algorithms
+iterators
+utilities
+common
+pair
+tuple
+optional
+variant
+lambda
+move
+swap
+
+Usage:
+  ref <topic>      # e.g. ref vector
+  ref stl          # open full STL quick reference
+  ref stl-list     # show this topic list
+EOF
+}
+
+is_stl_topic() {
+  local topic="$1"
+  case "$topic" in
+    vector|deque|list|array|set|map|unordered_set|unordered_map|stack|queue|priority_queue|algorithms|iterators|utilities|common|sort|lower_bound|binary_search|find|count|accumulate|all_of|any_of|transform|remove|unique|reverse|next_permutation|iota|pair|tuple|optional|variant|lambda|move|swap)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+open_stl_reference() {
+  if [[ ! -f "$STL_INDEX_FILE" ]]; then
+    echo "C++ STL quick reference not found: $STL_INDEX_FILE" >&2
+    exit 1
+  fi
+
+  pick_file_with_preview 'stl> ' "$STL_INDEX_FILE"
+}
+
+open_stl_topic() {
+  local topic="$1"
+
+  local file="$STL_ROOT/$topic.md"
+
+  case "$topic" in
+    vector|deque|list|array|set|map|unordered_set|unordered_map|stack|queue|priority_queue|algorithms|iterators|utilities|common)
+      ;;
+    sort|lower_bound|binary_search|find|count|accumulate|all_of|any_of|transform|remove|unique|reverse|next_permutation|iota)
+      file="$STL_ROOT/algorithms.md"
+      ;;
+    pair|tuple|optional|variant|lambda|move|swap)
+      file="$STL_ROOT/utilities.md"
+      ;;
+    *)
+      echo "Unknown STL topic: $topic" >&2
+      exit 1
+      ;;
+  esac
+
+  if [[ ! -f "$file" ]]; then
+    echo "C++ STL topic not found: $file" >&2
+    exit 1
+  fi
+
+  pick_file_with_preview 'stl> ' "$file"
+}
+
+open_file_picker() {
   local files
 
   if command -v fd >/dev/null 2>&1; then
@@ -65,20 +193,7 @@ open_file_picker() {
     return 1
   fi
 
-  if [[ "$USE_FZF" -eq 1 ]] && command -v fzf >/dev/null 2>&1; then
-    if [[ "$USE_PREVIEW" -eq 1 ]]; then
-      choice="$(printf '%s\n' "$files" \
-        | fzf --prompt='quickref files> ' \
-              --preview 'sed -n "1,200p" {}' \
-              --preview-window=right:60%)" || return 1
-    else
-      choice="$(printf '%s\n' "$files" | fzf --prompt='quickref files> ')" || return 1
-    fi
-  else
-    choice="$(printf '%s\n' "$files" | head -n 1)"
-  fi
-
-  open_in_editor "$choice"
+  pick_file_with_preview 'quickref files> ' "$files"
 }
 
 open_search_result() {
@@ -100,28 +215,7 @@ open_search_result() {
   local files
   files="$(printf '%s\n' "$matches" | cut -d: -f1 | awk '!seen[$0]++')"
 
-  local selected
-  local line
-
-  if [[ "$USE_FZF" -eq 1 ]] && command -v fzf >/dev/null 2>&1; then
-    local escaped_query
-    printf -v escaped_query '%q' "$query"
-
-    if [[ "$USE_PREVIEW" -eq 1 ]]; then
-      selected="$(printf '%s\n' "$files" \
-        | fzf --prompt='quickref files> ' \
-              --preview "rg --line-number --no-heading --smart-case --color=always -- ${escaped_query} {} | head -n 40; echo; sed -n '1,200p' {}" \
-              --preview-window=right:70%)" || exit 1
-    else
-      selected="$(printf '%s\n' "$files" | fzf --prompt='quickref files> ')" || exit 1
-    fi
-  else
-    selected="$(printf '%s\n' "$files" | head -n 1)"
-  fi
-
-  line="$(rg --line-number --no-heading --smart-case --color=never -- "$query" "$selected" | head -n 1 | cut -d: -f1)"
-
-  open_in_editor "$selected" "$line"
+  pick_file_with_preview 'quickref matches> ' "$files"
 }
 
 if [[ $# -eq 1 && "$1" == "--help" ]]; then
@@ -131,6 +225,24 @@ if [[ $# -eq 1 && "$1" == "--help" ]]; then
   fi
 
   open_in_editor "$INDEX_FILE"
+elif [[ $# -eq 1 ]]; then
+  arg_lower="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+
+  case "$arg_lower" in
+    stl|cpp-stl|c++-stl|--stl)
+      open_stl_reference
+      ;;
+    stl-list|--stl-list|list-stl|stls)
+      print_stl_topics
+      ;;
+    *)
+      if is_stl_topic "$arg_lower"; then
+        open_stl_topic "$arg_lower"
+      else
+        open_search_result "$*"
+      fi
+      ;;
+  esac
 elif [[ $# -eq 0 ]]; then
   open_file_picker
 else
